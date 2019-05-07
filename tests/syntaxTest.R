@@ -13,12 +13,12 @@ Last Updated: 10/19/2015
 "
 ############################
 
-test.countCharOccurences <- function(){
+test.countCharOccurences <- function() {
   checkEquals(countCharOccurrences("s", "selfless"), 3)
   checkEquals(countCharOccurrences(".", "..."), 3)
   preDefinedString <- "....+ajridsklwl ++=.djzzz"
   checkEquals(countCharOccurrences("q", preDefinedString), 0)
 }
 
-#testsuite.countCharOcurrences <- defineTestSuite("countCharOcurrences,
+# testsuite.countCharOcurrences <- defineTestSuite("countCharOcurrences,
 #                                                 ")

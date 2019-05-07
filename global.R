@@ -1,22 +1,22 @@
-#Experimenting with Mandatory Fields
+# Experimenting with Mandatory Fields
 fieldsMandatoryDataset <- c("probeFile", "targets", "controlProbeFile")
 fieldsMandatoryRunModel <- c("group1Syntax", "group2Syntax")
 
-correlationChoice <-FALSE
+correlationChoice <- FALSE
 
-changeCorrelationChoice <- function(choice){
+changeCorrelationChoice <- function(choice) {
   correlationChoice <<- choice
 }
 
-getCorrelationChoice <- function(){
-  return (correlationChoice)
+getCorrelationChoice <- function() {
+  return(correlationChoice)
 }
 
 isnt.null <- function(x) !is.null(x)
 
 
-getTutorial <- function(){
-  return (tutorial)
+getTutorial <- function() {
+  return(tutorial)
 }
 
 tutorial <- '<!DOCTYPE html>

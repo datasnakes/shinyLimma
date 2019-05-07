@@ -5,17 +5,16 @@ application constantly"
 
 
 
-shinyFile = R6("shinyFile",
-	public = list(
-		datapath = NULL,
-		name = NULL,
-		type = NULL,
+shinyFile <- R6("shinyFile",
+  public = list(
+    datapath = NULL,
+    name = NULL,
+    type = NULL,
 
-		initialize = function(datapath, name, type){
-			self$datapath = datapath
-			self$name = name
-			self$type = type
-		}
-
-	)
+    initialize = function(datapath, name, type) {
+      self$datapath <- datapath
+      self$name <- name
+      self$type <- type
+    }
+  )
 )

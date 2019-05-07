@@ -29,47 +29,57 @@ source("objects/report_generator.R")
 source("global.R", local = FALSE)
 
 # setting this option. Here we'll raise limit to 130MB.
-options(shiny.maxRequestSize = 130*1024^2)
+options(shiny.maxRequestSize = 130 * 1024^2)
 
 shinyServer(function(input, output, session) {
   downloadReady <- FALSE
-  
-  isDownloadReady <- function(){
-    return (downloadReady)
+
+  isDownloadReady <- function() {
+    return(downloadReady)
   }
 
-showModal <- function(id,session) {
-  session$sendCustomMessage(type="jsCode",
-                            list(code= paste("$('#",id,"').modal('show')"
-                                             ,sep="")))
-}
+  showModal <- function(id, session) {
+    session$sendCustomMessage(
+      type = "jsCode",
+      list(code = paste("$('#", id, "').modal('show')"
+        ,
+        sep = ""
+      ))
+    )
+  }
 
-hideModal <- function(id, session) {
-  session$sendCustomMessage(type="jsCode",
-                            list(code= paste("$('#",id,"').modal('hide')"
-                                             ,sep="")))
-}
+  hideModal <- function(id, session) {
+    session$sendCustomMessage(
+      type = "jsCode",
+      list(code = paste("$('#", id, "').modal('hide')"
+        ,
+        sep = ""
+      ))
+    )
+  }
 
-  #Globals that will represent the user input.
-  userInput = NULL
-  userProcessed = NULL
-  userDesign = NULL
-  completedAnalysis = NULL
-  scripter = NULL
-  reporter = NULL
+  # Globals that will represent the user input.
+  userInput <- NULL
+  userProcessed <- NULL
+  userDesign <- NULL
+  completedAnalysis <- NULL
+  scripter <- NULL
+  reporter <- NULL
 
   observe({
-    #Vapply can force a return to logical
+    # Vapply can force a return to logical
     mandatoryFilledDataset <-
-      vapply(fieldsMandatoryDataset,
-             function(x){
-               !is.null(input[[x]])
-             },
-             logical(1))
+      vapply(
+        fieldsMandatoryDataset,
+        function(x) {
+          !is.null(input[[x]])
+        },
+        logical(1)
+      )
     mandatoryFilledDataset <- all(mandatoryFilledDataset)
-    shinyjs::toggleState(id = 'fileSubmitter', condition = mandatoryFilledDataset)
+    shinyjs::toggleState(id = "fileSubmitter", condition = mandatoryFilledDataset)
   })
-  
+
   observeEvent(input$fileSubmitter, {
     showModal("loading", session)
     userInput <<- inputSL$new(input$probeFile, input$controlProbeFile, input$targets)
@@ -77,236 +87,241 @@ hideModal <- function(id, session) {
       toShow <- userInput$densityPlot()
       hideModal("loading", session)
       toShow
-      
-  })
+    })
     ################################################################
-    
-          #### SERVER-SIDE code for EXPLORE section HERE####
-    
+
+    #### SERVER-SIDE code for EXPLORE section HERE####
+
     ###############################################################
 
     output$exploratoryText <- renderText({
-      if (input$exploreSelection == 1){
+      if (input$exploreSelection == 1) {
         hide("exploratoryPlot")
-
       }
-      
-      else if (input$exploreSelection == 2){
+
+      else if (input$exploreSelection == 2) {
         paste("Displaying Heatmap of Raw Data")
         hide("exploratoryPlot")
         toggle("exploratoryPlot")
       }
-      
-      else if(input$exploreSelection == 3){
+
+      else if (input$exploreSelection == 3) {
         paste("Displaying boxplot of Raw Data")
         hide("exploratoryPlot")
         toggle("exploratoryPlot")
       }
     })
-    
+
     output$exploratoryPlot <- renderPlot({
-      
       plot <- getExploratoryPlot(input$exploreSelection, userInput$dataManager$rawData, userInput$targetManager$targets)
-      if (isnt.null(plot)){
+      if (isnt.null(plot)) {
         plot
       }
-      })
+    })
     ################################################################
-    
+
     #### SERVER-SIDE code for PRE-PROCESSING section HERE####
-    
+
     ###############################################################
     output$rawPlot2 <- renderPlot({
-      boxplot(log2(userInput$dataManager$rawData$E),range=0,ylab="log2 intensity")
+      boxplot(log2(userInput$dataManager$rawData$E), range = 0, ylab = "log2 intensity")
     })
   })
-  
+
   observeEvent(input$preprocessingSubmitter, {
-      USER_CUSTOM = 4
-      bgCorrect = input$backgroundCheckbox
-      filter_level = as.numeric(input$filteringSelection)
-      ratio  =  round(ncol(userInput$dataManager$rawData) * (as.numeric(input$ratioSelection)))
-      if(input$filteringSelection == USER_CUSTOM){
-          filter_level = as.numeric(input$filterSlider)/100
+    USER_CUSTOM <- 4
+    bgCorrect <- input$backgroundCheckbox
+    filter_level <- as.numeric(input$filteringSelection)
+    ratio <- round(ncol(userInput$dataManager$rawData) * (as.numeric(input$ratioSelection)))
+    if (input$filteringSelection == USER_CUSTOM) {
+      filter_level <- as.numeric(input$filterSlider) / 100
     }
-      if(input$ratioSelection == USER_CUSTOM){
-          ratio  = round(ncol(userInput$dataManager$rawData) * (as.numeric(input$ratioSlider)/100))
+    if (input$ratioSelection == USER_CUSTOM) {
+      ratio <- round(ncol(userInput$dataManager$rawData) * (as.numeric(input$ratioSlider) / 100))
     }
-    userProcessed = normalizedArray$new(userInput$dataManager$rawData, input$normalizationSelection, filter_level, ratio, bgCorrect)
+    userProcessed <- normalizedArray$new(userInput$dataManager$rawData, input$normalizationSelection, filter_level, ratio, bgCorrect)
     userProcessed <<- userProcessed
-    
+
     output$preprocessingPlot <- renderPlot({
       userProcessed$boxplot()
     })
-    
+
     output$filteringResults <- renderPlot({
       userProcessed$probeFilterPlot()
     })
-
   })
-  
+
   observeEvent(input$refilterButton, {
-    if(isnt.null(userProcessed)){
-        output$filteringResults <- renderPlot({
-          USER_CUSTOM = 4
-          filter_level = as.numeric(input$filteringSelection)
-          ratio  =  round(ncol(userInput$dataManager$rawData) * (as.numeric(input$ratioSelection)))
-          if(input$filteringSelection == USER_CUSTOM){
-            filter_level = as.numeric(input$filterSlider)/100
-          }
-          if(input$ratioSelection == USER_CUSTOM){
-            ratio  = round(ncol(userInput$dataManager$rawData) * (as.numeric(input$ratioSlider)/100))
-          }
-          userProcessed$pdetectionFilter(userProcessed$rawData, filter_level, ratio)
-          userProcessed$probeFilterPlot()
+    if (isnt.null(userProcessed)) {
+      output$filteringResults <- renderPlot({
+        USER_CUSTOM <- 4
+        filter_level <- as.numeric(input$filteringSelection)
+        ratio <- round(ncol(userInput$dataManager$rawData) * (as.numeric(input$ratioSelection)))
+        if (input$filteringSelection == USER_CUSTOM) {
+          filter_level <- as.numeric(input$filterSlider) / 100
+        }
+        if (input$ratioSelection == USER_CUSTOM) {
+          ratio <- round(ncol(userInput$dataManager$rawData) * (as.numeric(input$ratioSlider) / 100))
+        }
+        userProcessed$pdetectionFilter(userProcessed$rawData, filter_level, ratio)
+        userProcessed$probeFilterPlot()
       })
-      
-    }else{
+    } else {
       NULL
     }
   })
   ################################################################
-  
+
   #### SERVER-SIDE code for CONTRAST MATRIX section HERE####
-  
-  ###############################################################  
+
+  ###############################################################
   observeEvent(input$contrastSubmitter, {
-      userDesign <<- exp_design$new(input$group1Contrast, input$group2Contrast, userInput$targetManager$validGroups, userInput$targetManager$targets)
-      if (userDesign$validSyntax){
-        showModal("matrixDone", session)
-        validate(toDisplay) 
-      }else{
-        showModal("matrixFailed", session)
-        
-      }
+    userDesign <<- exp_design$new(input$group1Contrast, input$group2Contrast, userInput$targetManager$validGroups, userInput$targetManager$targets)
+    if (userDesign$validSyntax) {
+      showModal("matrixDone", session)
+      validate(toDisplay)
+    } else {
+      showModal("matrixFailed", session)
+    }
   })
 
- cachedTargets <- NULL
- 
+  cachedTargets <- NULL
+
   output$targetsTable <- renderHtable({
-      if(isnt.null(userInput)){
-          toDisplay <- as.data.frame(userInput$targetManager$targets)
-          cachedTargets <<- toDisplay
-          initialize(toDisplay) 
-		  return (toDisplay)
-      }
+    if (isnt.null(userInput)) {
+      toDisplay <- as.data.frame(userInput$targetManager$targets)
+      cachedTargets <<- toDisplay
+      initialize(toDisplay)
+      return(toDisplay)
+    }
   })
-   
-   validate <- function(mat){
-	  group1 <- strsplit(input$group1Contrast, split = ".", fixed = TRUE)[[1]]
-    group2 <- strsplit(input$group2Contrast, split = ".", fixed = TRUE)[[1]]
-    group1_attributes = list()
-    group2_attributes = list()
-    cat("Length of group 1 is ", length(group1), "\n")
-    cat("Length of group 2 is " , length(group2), "\n")
-    
-    for (i in 1:ncol(userInput$targetManager$targets)){
-		updateTableStyle(session, "targetsTable", "valid",
-                  which(cachedTargets[[i]] != ""), i)
-    }  
-    for (i in 1:ncol(userInput$targetManager$targets)){
-    for (j in 1:length(group1)){
-      if (length(which(cachedTargets[[i]] == group1[j])) > 0){
-      group1_attributes[[length(group1_attributes) + 1]] = which(cachedTargets[[i]] == group1[j])
-      }
-      cat("result of which is", which((cachedTargets[[i]] == group1[j])), " for targets ", cachedTargets[[i]], "and group : ", group1[j], "\n")
-    }
-    for (j in 1:length(group2)){
-      if(length(which(cachedTargets[[i]] == group2[j])) > 0){
-      group2_attributes[[length(group2_attributes) + 1]] = which(cachedTargets[[i]] == group2[j])
-      }
-    }
-    }
-    for (i in 1:length(group1)){
-    updateTableStyle(session, "targetsTable", "warning", 
-                     Reduce(intersect, group1_attributes), i)
-    }
-    for (i in 1:length(group2)){
-    updateTableStyle(session, "targetsTable", "invalid",
-                     Reduce(intersect, group2_attributes), i)
-    }
-	}
 
-   initialize <- function(mat){
-   	  for (i in 1:ncol(userInput$targetManager$targets)){
-        updateTableStyle(session, "targetsTable", "valid",
-                  which(cachedTargets[[i]] != ""), i)
+  validate <- function(mat) {
+    group1 <- strsplit(input$group1Contrast, split = ".", fixed = TRUE)[[1]]
+    group2 <- strsplit(input$group2Contrast, split = ".", fixed = TRUE)[[1]]
+    group1_attributes <- list()
+    group2_attributes <- list()
+    cat("Length of group 1 is ", length(group1), "\n")
+    cat("Length of group 2 is ", length(group2), "\n")
+
+    for (i in 1:ncol(userInput$targetManager$targets)) {
+      updateTableStyle(
+        session, "targetsTable", "valid",
+        which(cachedTargets[[i]] != ""), i
+      )
+    }
+    for (i in 1:ncol(userInput$targetManager$targets)) {
+      for (j in 1:length(group1)) {
+        if (length(which(cachedTargets[[i]] == group1[j])) > 0) {
+          group1_attributes[[length(group1_attributes) + 1]] <- which(cachedTargets[[i]] == group1[j])
+        }
+        cat("result of which is", which((cachedTargets[[i]] == group1[j])), " for targets ", cachedTargets[[i]], "and group : ", group1[j], "\n")
+      }
+      for (j in 1:length(group2)) {
+        if (length(which(cachedTargets[[i]] == group2[j])) > 0) {
+          group2_attributes[[length(group2_attributes) + 1]] <- which(cachedTargets[[i]] == group2[j])
+        }
+      }
+    }
+    for (i in 1:length(group1)) {
+      updateTableStyle(
+        session, "targetsTable", "warning",
+        Reduce(intersect, group1_attributes), i
+      )
+    }
+    for (i in 1:length(group2)) {
+      updateTableStyle(
+        session, "targetsTable", "invalid",
+        Reduce(intersect, group2_attributes), i
+      )
+    }
   }
-} 
-    ################################################################
-    
-    #### SERVER-SIDE code for ANALYSIS section HERE####
-    
-    ###############################################################
+
+  initialize <- function(mat) {
+    for (i in 1:ncol(userInput$targetManager$targets)) {
+      updateTableStyle(
+        session, "targetsTable", "valid",
+        which(cachedTargets[[i]] != ""), i
+      )
+    }
+  }
+  ################################################################
+
+  #### SERVER-SIDE code for ANALYSIS section HERE####
+
+  ###############################################################
   observeEvent(input$analysisSubmitter, {
-    #If user chose to normalize data
-    if(!is.null(userProcessed$normalizedData)){
-      completedAnalysis <<- differentialExpression$new(userDesign$contrastMatrix, 
-                                    userProcessed$normalizedData, userDesign$designExpression)
-      #if they skipped it
-    }else{
+    # If user chose to normalize data
+    if (!is.null(userProcessed$normalizedData)) {
+      completedAnalysis <<- differentialExpression$new(
+        userDesign$contrastMatrix,
+        userProcessed$normalizedData, userDesign$designExpression
+      )
+      # if they skipped it
+    } else {
       completedAnalysis <<- differentialExpression$new(userDesign$contrastMatrix, userInput$dataManager$rawData, userDesign$designExpression)
     }
     downloadReady <<- TRUE
     showModal("analysisDone", session)
-    
   })
-    
-  output$topTable <- renderDataTable({
 
-    if (input$analysisSelection == 1){
+  output$topTable <- renderDataTable({
+    if (input$analysisSelection == 1) {
     }
-    
-    if (input$analysisSelection == 2){
+
+    if (input$analysisSelection == 2) {
       completedAnalysis$topGeneTable()
-    }else{
+    } else {
     }
   })
-  
+
   output$geneTable <- renderDataTable({
-    if(input$analysisSelection == 3){
+    if (input$analysisSelection == 3) {
       completedAnalysis$allGeneTable()
-    }else{
+    } else {
     }
   })
-  
+
   output$downloadGenes <- downloadHandler(
-    filename = function() {paste('SL_', Sys.time(), '.csv', sep='') },
+    filename = function() {
+      paste("SL_", Sys.time(), ".csv", sep = "")
+    },
     content = function(file) {
-      if (input$exportCriteria == 'All' ){
+      if (input$exportCriteria == "All") {
         write.csv(completedAnalysis$allGeneTable(), file)
-      }else{
-        filteredValues = FilterBy(completedAnalysis$allGeneTable(), input$exportCriteria, input$cutoff)
+      } else {
+        filteredValues <- FilterBy(completedAnalysis$allGeneTable(), input$exportCriteria, input$cutoff)
         write.csv(filteredValues, file)
       }
     }
   )
   ################################################################
-  
+
   #### SERVER-SIDE code for REPORTING section HERE####
-  
+
   ###############################################################
   output$codeDownloader <- downloadHandler(
-      filename = function(){
-        paste('script-', Sys.Date(), '.R', sep ='')
-      },
-      content = function(con){
-        scripter <<- script_writer$new(userInput, userProcessed, userDesign, completedAnalysis)
-        code <- scripter$output_script()
-        writeLines(code, con)
-      }
-    )
+    filename = function() {
+      paste("script-", Sys.Date(), ".R", sep = "")
+    },
+    content = function(con) {
+      scripter <<- script_writer$new(userInput, userProcessed, userDesign, completedAnalysis)
+      code <- scripter$output_script()
+      writeLines(code, con)
+    }
+  )
 
   output$reportDownloader <- downloadHandler(
-    filename = function(){
-      paste('report-', Sys.Date(), '.Rmd', sep = '')
-      },
-      content = function(con){
-        title <- input$report_title
-        author <- input$report_author
-        output_type <- input$report_output
-        reporter <<- report_generator$new(userInput, userProcessed, userDesign, completedAnalysis, title, author, output_type)
-        report <- reporter$output_RMD()
-        writeLines(report, con)
-        })
+    filename = function() {
+      paste("report-", Sys.Date(), ".Rmd", sep = "")
+    },
+    content = function(con) {
+      title <- input$report_title
+      author <- input$report_author
+      output_type <- input$report_output
+      reporter <<- report_generator$new(userInput, userProcessed, userDesign, completedAnalysis, title, author, output_type)
+      report <- reporter$output_RMD()
+      writeLines(report, con)
+    }
+  )
 })
